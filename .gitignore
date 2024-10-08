@@ -3,6 +3,7 @@ node_modules/
 
 # Environment variables
 .env
+/Users/bethcartrette/REPOS/spanos-eds-chatbot/app/streamlit-rag-chatbot/.env
 
 # Build output
 app/build/

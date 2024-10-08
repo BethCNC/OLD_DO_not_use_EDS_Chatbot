@@ -23,7 +23,7 @@ embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
 # Initialize Pinecone vector store
 index_name = "spanos"  # Replace with your actual index name
 index = pc.Index(index_name)
-vectorstore = Pinecone(index, embeddings.embed_query, "text")
+vectorstore = Pinecone(index, embeddings, "text")
 
 # Initialize OpenAI chat model
 llm = ChatOpenAI(
