@@ -1,57 +1,67 @@
-import { ChatOpenAI } from "langchain/dist/chat_models/openai";
-import { PineconeStore } from "langchain/dist/vectorstores/pinecone";
-import { OpenAIEmbeddings } from "langchain/dist/embeddings/openai";
-import { PineconeClient } from "@pinecone-database/pinecone";
-import { RetrievalQAChain } from "langchain/dist/chains";
+import { Pinecone } from "@pinecone-database/pinecone";
+import { PineconeStore } from "@langchain/pinecone";
+import { OpenAIEmbeddings } from "@langchain/openai";
+import { ChatOpenAI } from "@langchain/openai";
+import { RetrievalQAChain } from "langchain/chains";
 
 const PINECONE_API_KEY = process.env.REACT_APP_PINECONE_API_KEY;
 const PINECONE_ENV = process.env.REACT_APP_PINECONE_ENV;
 const PINECONE_INDEX = process.env.REACT_APP_PINECONE_INDEX;
 const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
 
-if (!PINECONE_API_KEY || !PINECONE_ENV || !PINECONE_INDEX || !OPENAI_API_KEY) {
-  throw new Error("Missing environment variables");
-}
-
 let vectorStore;
+let qa;
 
 const initVectorStore = async () => {
   try {
-    const client = new PineconeClient();
-    await client.init({
+    console.log("Initializing Pinecone client...");
+    const pinecone = new Pinecone({
       apiKey: PINECONE_API_KEY,
       environment: PINECONE_ENV,
     });
 
-    const pineconeIndex = client.Index(PINECONE_INDEX);
+    console.log("Getting Pinecone index...");
+    const index = pinecone.Index(PINECONE_INDEX);
 
+    console.log("Creating OpenAI embeddings...");
     const embeddings = new OpenAIEmbeddings({
       openAIApiKey: OPENAI_API_KEY,
     });
 
-    vectorStore = await PineconeStore.fromExistingIndex(embeddings, { pineconeIndex });
+    console.log("Creating vector store...");
+    vectorStore = await PineconeStore.fromExistingIndex(embeddings, { pineconeIndex: index });
+
+    console.log("Creating ChatOpenAI model...");
+    const model = new ChatOpenAI({
+      openAIApiKey: OPENAI_API_KEY,
+      modelName: 'gpt-3.5-turbo',
+      temperature: 0.0
+    });
+
+    console.log("Creating RetrievalQAChain...");
+    qa = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
+
+    console.log("Vector store initialized successfully.");
   } catch (error) {
     console.error("Error initializing vector store:", error);
-    throw error;
+    throw new Error("Failed to connect to the database. Please check your credentials and try again.");
   }
 };
 
-export const getChatResponse = async (query) => {
+const getChatResponse = async (question) => {
+  if (!qa) {
+    throw new Error("Vector store not initialized. Please call initVectorStore first.");
+  }
+
   try {
-    if (!vectorStore) {
-      await initVectorStore();
-    }
-
-    const model = new ChatOpenAI({ openAIApiKey: OPENAI_API_KEY });
-    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
-
-    const response = await chain.call({
-      query: query,
-    });
-
+    console.log("Querying RetrievalQAChain...");
+    const response = await qa.call({ query: question });
+    console.log("Response received:", response);
     return response.text;
   } catch (error) {
     console.error("Error getting chat response:", error);
-    throw error;
+    throw new Error("Failed to get a response from the chatbot. Please try again.");
   }
 };
+
+export { initVectorStore, getChatResponse };
