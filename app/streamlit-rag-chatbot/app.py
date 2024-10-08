@@ -1,6 +1,6 @@
 import os
-import streamlit as st
 from dotenv import load_dotenv
+import streamlit as st
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone
 from langchain_openai import ChatOpenAI
