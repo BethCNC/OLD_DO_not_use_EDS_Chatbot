@@ -1,5 +1,3 @@
-import os
-from dotenv import load_dotenv
 import streamlit as st
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone
@@ -7,27 +5,20 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from pinecone import Pinecone as PineconeClient
 
-# Load environment variables
-load_dotenv()
-
-# Print environment variables for debugging
-print("PINECONE_API_KEY:", os.getenv("PINECONE_API_KEY"))
-print("OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
-
 # Initialize Pinecone
-pc = PineconeClient(api_key=os.getenv("PINECONE_API_KEY"))
+pc = PineconeClient(api_key=st.secrets.pinecone.api_key)
 
 # Set up OpenAI embeddings
-embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+embeddings = OpenAIEmbeddings(openai_api_key=st.secrets.openai.api_key)
 
 # Initialize Pinecone vector store
-index_name = "spanos"  # Replace with your actual index name
+index_name = st.secrets.pinecone.index_name
 index = pc.Index(index_name)
-vectorstore = Pinecone(index, embeddings, "text")
+vectorstore = Pinecone(index, embeddings.embed_query, "text")
 
 # Initialize OpenAI chat model
 llm = ChatOpenAI(
-    openai_api_key=os.getenv("OPENAI_API_KEY"),
+    openai_api_key=st.secrets.openai.api_key,
     model_name="gpt-3.5-turbo",
     temperature=0
 )
