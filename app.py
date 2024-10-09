@@ -1,18 +1,21 @@
 import streamlit as st
-from PIL import Image
 import os
+from PIL import Image
+
+# Get the absolute path to the project directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Set page config
 st.set_page_config(
     page_title="Dr. Spanos EDS Chatbot",
-    page_icon="assets/favicon.ico",
+    page_icon=os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "favicon.ico"),
     layout="centered"
 )
 
 # Load images
-avatar_doctor = Image.open("assets/AvatarDoctor.png")
-avatar_zebra = Image.open("assets/AvatarZebra.png")
-disclaimer_image = Image.open("assets/disclaimer.png")
+avatar_doctor = Image.open(os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "AvatarDoctor.png"))
+avatar_zebra = Image.open(os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "AvatarZebra.png"))
+disclaimer_image = Image.open(os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "Disclaimer.png"))
 
 # Custom CSS to match your design
 st.markdown("""
@@ -21,20 +24,26 @@ st.markdown("""
         background-color: #f0f0f0;
     }
     .stTitle {
-        color: #D9376E;
-        font-size: 2.5rem;
+        color: #D9376E !important;
+        font-size: 2.5rem !important;
     }
     .stSubheader {
-        color: #262730;
-        font-size: 1rem;
+        color: #262730 !important;
+        font-size: 1rem !important;
     }
-    .stTextInput {
-        border: 2px solid #FF8E3C;
+    .stChatInputContainer {
+        border: 2px solid #FF8E3C !important;
+        border-radius: 10px !important;
+    }
+    .stButton > button {
+        background-color: #FF8E3C !important;
+        color: white !important;
+    }
+    .stChatMessage {
+        background-color: #ffffff;
         border-radius: 10px;
-    }
-    .stButton>button {
-        background-color: #FF8E3C;
-        color: white;
+        padding: 10px;
+        margin-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -54,20 +63,22 @@ for message in st.session_state.messages:
 
 # React to user input
 if prompt := st.chat_input("What is your question?"):
-    # Display user message in chat message container
-    with st.chat_message("user", avatar=avatar_zebra):
-        st.markdown(prompt)
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # Display user message
+    with st.chat_message("user", avatar=avatar_zebra):
+        st.markdown(prompt)
 
-    # Get bot response
+    # Get bot response (replace this with your actual chatbot logic)
     response = "This is a placeholder response. Replace this with your actual chatbot logic."
     
-    # Display assistant response in chat message container
-    with st.chat_message("assistant", avatar=avatar_doctor):
-        st.markdown(response)
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": response})
+    
+    # Display assistant response
+    with st.chat_message("assistant", avatar=avatar_doctor):
+        st.markdown(response)
 
 # Display disclaimer
 st.image(disclaimer_image, use_column_width=True)
