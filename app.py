@@ -11,6 +11,31 @@ from PIL import Image
 # Load environment variables from .env file
 load_dotenv()
 
+# Custom CSS to load MabryPro font
+st.markdown("""
+    <style>
+    @font-face {
+        font-family: 'MabryPro';
+        src: url('DrSpanos_Chatbot/assets/MabryPro-Regular.woff2') format('woff2'),
+             url('DrSpanos_Chatbot/assets/MabryPro-Regular.woff') format('woff');
+        font-weight: normal;
+        font-style: normal;
+    }
+    
+    @font-face {
+        font-family: 'MabryPro';
+        src: url('DrSpanos_Chatbot/assets/MabryPro-Bold.woff2') format('woff2'),
+             url('DrSpanos_Chatbot/assets/MabryPro-Bold.woff') format('woff');
+        font-weight: bold;
+        font-style: normal;
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'MabryPro', sans-serif;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Function to get configuration
 def get_config(key):
     # First, try to get the value from environment variables (for local development)
@@ -127,3 +152,26 @@ if prompt := st.chat_input("What is your question?"):
 
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+# Footer
+footer_html = """
+<style>
+    .footer {
+        position: relative;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #f1f1f1;
+        color: black;
+        text-align: center;
+        padding: 10px;
+        font-size: 12px;
+        margin-top: 20px;
+    }
+</style>
+<div class="footer">
+    <p><strong>Disclaimer:</strong> The information contained on this site and the supporting attachments provided by Rachel Lee Patient Advocacy Consulting are for educational purposes only. Although we have performed extensive research regarding medical conditions, treatments, diagnoses, protocols and medical research, the staff of Rachel Lee Patient Advocacy Consulting are not licensed members of the North Carolina Medical Board or any clinical affiliates including but not limited to the NC Board of Physical Therapy Examiners, the NC board of Licensed Professional Counselors, or the NC board of Dietetics/Nutrition. Information provided by members of Rachel Lee Patient Advocacy Consulting should not be considered a substitute for the advice of a licensed medical doctor, counselor, therapist or other licensed clinical practitioner in handling your medical affairs.</p>
+</div>
+"""
+
+st.markdown(footer_html, unsafe_allow_html=True)
