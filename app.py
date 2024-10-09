@@ -1,90 +1,74 @@
 import streamlit as st
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_pinecone import PineconeVectorStore
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-import pinecone
-import tempfile
+from PIL import Image
+import os
 
-# OpenAI setup
-openai_api_key = st.secrets["openai"]["api_key"]
-llm = ChatOpenAI(
-    api_key=openai_api_key,
-    temperature=0,
-    model="gpt-3.5-turbo-0125",
+# Set page config
+st.set_page_config(
+    page_title="Dr. Spanos EDS Chatbot",
+    page_icon="assets/favicon.ico",
+    layout="centered"
 )
 
-# Initialize embeddings
-embeddings = OpenAIEmbeddings(model="text-embedding-3-large", openai_api_key=openai_api_key)
+# Load images
+avatar_doctor = Image.open("assets/AvatarDoctor.png")
+avatar_zebra = Image.open("assets/AvatarZebra.png")
+disclaimer_image = Image.open("assets/disclaimer.png")
 
-# Initialize Pinecone
-pinecone.init(
-    api_key=st.secrets["pinecone"]["api_key"],
-    environment=st.secrets["pinecone"]["environment"]
-)
-index_name = st.secrets["pinecone"]["index_name"]
+# Custom CSS to match your design
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #f0f0f0;
+    }
+    .stTitle {
+        color: #D9376E;
+        font-size: 2.5rem;
+    }
+    .stSubheader {
+        color: #262730;
+        font-size: 1rem;
+    }
+    .stTextInput {
+        border: 2px solid #FF8E3C;
+        border-radius: 10px;
+    }
+    .stButton>button {
+        background-color: #FF8E3C;
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Initialize Pinecone Vector Store
-vectorstore = PineconeVectorStore.from_existing_index(index_name=index_name, embedding=embeddings)
+# Title and description
+st.title("Dr. Spanos EDS Chatbot")
+st.subheader("This Chatbot is specifically only trained on Dr. Spanos Research © 2024")
 
-# Streamlit UI
-st.title("Dr. Spanos Chatbot")
-
-# File uploader
-uploaded_files = st.sidebar.file_uploader("Upload PDF files", accept_multiple_files=True, type="pdf")
-
-if uploaded_files:
-    for file in uploaded_files:
-        # Create a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-            temp_file.write(file.getvalue())
-            temp_file_path = temp_file.name
-        
-        # Load and process the PDF
-        loader = PyPDFLoader(temp_file_path)
-        documents = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-        texts = text_splitter.split_documents(documents)
-        
-        # Add to vector store
-        vectorstore.add_documents(texts)
-        
-        # Remove the temporary file
-        import os
-        os.unlink(temp_file_path)
-    
-    st.sidebar.success("Files processed and added to the knowledge base!")
-
-# Initialize conversation chain
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-conversation_chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=vectorstore.as_retriever(),
-    memory=memory
-)
-
-# Chat interface
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Display chat messages from history on app rerun
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    with st.chat_message(message["role"], avatar=avatar_doctor if message["role"] == "assistant" else avatar_zebra):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("What would you like to know about Dr. Spanos?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+# React to user input
+if prompt := st.chat_input("What is your question?"):
+    # Display user message in chat message container
+    with st.chat_message("user", avatar=avatar_zebra):
         st.markdown(prompt)
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
-        
-        result = conversation_chain({"question": prompt})
-        full_response = result['answer']
-        
-        message_placeholder.markdown(full_response)
+    # Get bot response
+    response = "This is a placeholder response. Replace this with your actual chatbot logic."
     
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    # Display assistant response in chat message container
+    with st.chat_message("assistant", avatar=avatar_doctor):
+        st.markdown(response)
+    # Add assistant response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": response})
+
+# Display disclaimer
+st.image(disclaimer_image, use_column_width=True)
+st.markdown("This Chatbot is built by BethCNC © 2024")
