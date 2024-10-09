@@ -6,6 +6,7 @@ from langchain_community.vectorstores import Pinecone
 from langchain_openai import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from pinecone import Pinecone as PineconeClient
+from PIL import Image
 
 # Load environment variables from .env file
 load_dotenv()
@@ -43,7 +44,7 @@ except Exception as e:
 
 # Set up OpenAI embeddings
 try:
-    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+    embeddings = OpenAIEmbeddings(api_key=openai_api_key)
 except Exception as e:
     st.error(f"Error setting up OpenAI embeddings: {str(e)}")
     st.stop()
@@ -59,8 +60,8 @@ except Exception as e:
 # Initialize OpenAI chat model
 try:
     llm = ChatOpenAI(
-        openai_api_key=openai_api_key,
-        model_name="gpt-3.5-turbo",
+        api_key=openai_api_key,
+        model="gpt-3.5-turbo",
         temperature=0
     )
 except Exception as e:
@@ -77,13 +78,25 @@ qa_chain = ConversationalRetrievalChain.from_llm(
 # Streamlit UI
 st.title("Dr. Spanos Ehler Danlos Syndrome Chatbot")
 
+# Load the avatar images
+current_dir = os.path.dirname(os.path.abspath(__file__))
+avatar_doctor_path = os.path.join(current_dir, "assets", "AvatarDoctor.png")
+avatar_zebra_path = os.path.join(current_dir, "assets", "AvatarZebra.png")
+
+try:
+    avatar_doctor = Image.open(avatar_doctor_path)
+    avatar_zebra = Image.open(avatar_zebra_path)
+except FileNotFoundError as e:
+    st.error(f"Error loading avatar images: {str(e)}")
+    st.error(f"Current directory: {current_dir}")
+    st.error(f"Attempted to load doctor avatar from: {avatar_doctor_path}")
+    st.error(f"Attempted to load zebra avatar from: {avatar_zebra_path}")
+    avatar_doctor = None
+    avatar_zebra = None
+
 # Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
-# Load the avatar images
-avatar_doctor = "DrSpanos_Chatbot/assets/AvatarDoctor.svg"
-avatar_zebra = "DrSpanos_Chatbot/assets/AvatarZebra.svg"
 
 # Display chat messages from history on app rerun
 for message in st.session_state.messages:
