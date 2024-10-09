@@ -4,3 +4,5 @@ langchain-community
 langchain-openai
 openai
 pinecone-client
+python-dotenv
+Pillow

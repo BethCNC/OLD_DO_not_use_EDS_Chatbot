@@ -1,11 +1,11 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import PineconeVectorStore
-from langchain.chat_models import ChatOpenAI
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import Pinecone
+from langchain_openai import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
-from pinecone import Pinecone
+from pinecone import Pinecone as PineconeClient
 from PIL import Image
 import base64
 from io import BytesIO
@@ -57,12 +57,34 @@ st.markdown("""
     .main .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .title-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+
+    .title-container img {
+        width: 48px;
+        height: 48px;
+        margin-right: 1rem;
     }
 
     h1 {
         color: #FF492F;
         font-family: 'MabryPro', sans-serif;
         font-weight: 900;
+        font-size: 48px;
+        margin: 0;
+    }
+
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
     }
 
     .stTextInput > div > div > input {
@@ -133,6 +155,16 @@ st.markdown("""
         font-size: 12px;
         line-height: 1.5;
     }
+
+    .input-container {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .input-container .stTextInput {
+        flex-grow: 1;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -161,13 +193,6 @@ pinecone_api_key = get_config("PINECONE_API_KEY")
 pinecone_index_name = get_config("PINECONE_INDEX_NAME")
 openai_api_key = get_config("OPENAI_API_KEY")
 
-# Initialize Pinecone
-try:
-    pc = Pinecone(api_key=pinecone_api_key)
-except Exception as e:
-    st.error(f"Error initializing Pinecone: {str(e)}")
-    st.stop()
-
 # Set up OpenAI embeddings
 try:
     embeddings = OpenAIEmbeddings(api_key=openai_api_key)
@@ -175,10 +200,11 @@ except Exception as e:
     st.error(f"Error setting up OpenAI embeddings: {str(e)}")
     st.stop()
 
-# Initialize Pinecone vector store
+# Initialize Pinecone
 try:
+    pc = PineconeClient(api_key=pinecone_api_key)
     index = pc.Index(pinecone_index_name)
-    vectorstore = PineconeVectorStore(index, embeddings, "text")
+    vectorstore = Pinecone(index, embeddings.embed_query, "text")
 except Exception as e:
     st.error(f"Error initializing Pinecone vector store: {str(e)}")
     st.stop()
@@ -201,8 +227,25 @@ qa_chain = ConversationalRetrievalChain.from_llm(
     return_source_documents=True
 )
 
+# Function to convert image to base64
+def img_to_base64(img):
+    if img is not None:
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+    return ""
+
 # Streamlit UI
-st.title("Dr. Spanos Ehler Danlos Syndrome Chatbot")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+favicon_path = os.path.join(current_dir, "assets", "favicon.ico")
+favicon_base64 = img_to_base64(Image.open(favicon_path))
+
+st.markdown(f"""
+    <div class="title-container">
+        <img src="data:image/png;base64,{favicon_base64}" alt="Favicon" />
+        <h1>Dr. Spanos Ehler Danlos Syndrome Chatbot</h1>
+    </div>
+""", unsafe_allow_html=True)
 
 # Load the avatar and disclaimer images
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -221,14 +264,6 @@ except FileNotFoundError as e:
     st.error(f"Attempted to load zebra avatar from: {avatar_zebra_path}")
     st.error(f"Attempted to load disclaimer icon from: {disclaimer_icon_path}")
     avatar_doctor = avatar_zebra = disclaimer_icon = None
-
-# Function to convert image to base64
-def img_to_base64(img):
-    if img is not None:
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        return base64.b64encode(buffered.getvalue()).decode()
-    return ""
 
 # Chat interface
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
@@ -250,9 +285,12 @@ for message in st.session_state.messages:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Chat input
-user_input = st.text_input("Type your message here...")
+st.markdown("<div class='input-container'>", unsafe_allow_html=True)
+user_input = st.text_input("Type your message here...", key="user_input")
+send_button = st.button("Send")
+st.markdown("</div>", unsafe_allow_html=True)
 
-if user_input:
+if send_button and user_input:
     # Add user message to chat
     st.session_state.messages.append({"role": "user", "content": user_input})
     
@@ -262,6 +300,9 @@ if user_input:
     
     # Add bot response to chat
     st.session_state.messages.append({"role": "assistant", "content": bot_response})
+    
+    # Clear the input field
+    st.session_state.user_input = ""
     
     # Rerun the app to display the new messages
     st.rerun()
