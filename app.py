@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 import streamlit as st
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone
@@ -5,14 +7,23 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from pinecone import Pinecone as PineconeClient
 
-# Load the avatar images
-avatar_doctor = "DrSpanos_Chatbot/assets/AvatarDoctor.svg"
-avatar_zebra = "DrSpanos_Chatbot/assets/AvatarZebra.svg"
+# Load environment variables from .env file if running locally
+if os.path.exists('.env'):
+    load_dotenv()
+
+# Load secrets from streamlit's secrets.toml if deployed
+if "pinecone" in st.secrets:
+    pinecone_api_key = st.secrets["pinecone"]["api_key"]
+    pinecone_index_name = st.secrets["pinecone"]["index_name"]
+    openai_api_key = st.secrets["openai"]["api_key"]
+else:
+    # Fallback to environment variables for local development
+    pinecone_api_key = os.getenv("PINECONE_API_KEY")
+    pinecone_index_name = os.getenv("PINECONE_INDEX_NAME")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize Pinecone
 try:
-    pinecone_api_key = st.secrets["pinecone"]["api_key"]
-    pinecone_index_name = st.secrets["pinecone"]["index_name"]
     pc = PineconeClient(api_key=pinecone_api_key)
 except Exception as e:
     st.error(f"Error initializing Pinecone: {str(e)}")
@@ -20,7 +31,6 @@ except Exception as e:
 
 # Set up OpenAI embeddings
 try:
-    openai_api_key = st.secrets["openai"]["api_key"]
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
 except Exception as e:
     st.error(f"Error setting up OpenAI embeddings: {str(e)}")
@@ -59,6 +69,10 @@ st.title("Dr. Spanos Ehler Danlos Syndrome Chatbot")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Load the avatar images
+avatar_doctor = "DrSpanos_Chatbot/assets/AvatarDoctor.svg"
+avatar_zebra = "DrSpanos_Chatbot/assets/AvatarZebra.svg"
+
 # Display chat messages from history on app rerun
 for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar=avatar_zebra if message["role"] == "user" else avatar_doctor):
@@ -88,4 +102,3 @@ if prompt := st.chat_input("What is your question?"):
 
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": full_response})
-
