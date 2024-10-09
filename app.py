@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
+from streamlit.runtime.scriptrunner import RerunData, RerunException
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone
 from langchain_openai import ChatOpenAI
@@ -284,9 +285,13 @@ for message in st.session_state.messages:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
+# Add this function before your chat input section
+def clear_text():
+    st.session_state["user_input"] = ""
+
 # Chat input
 st.markdown("<div class='input-container'>", unsafe_allow_html=True)
-user_input = st.text_input("Type your message here...", key="user_input")
+user_input = st.text_input("Type your message here...", key="user_input", on_change=clear_text)
 send_button = st.button("Send")
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -301,11 +306,8 @@ if send_button and user_input:
     # Add bot response to chat
     st.session_state.messages.append({"role": "assistant", "content": bot_response})
     
-    # Clear the input field
-    st.session_state.user_input = ""
-    
     # Rerun the app to display the new messages
-    st.rerun()
+    raise RerunException(RerunData(widget_states=None))
 
 # Disclaimer
 disclaimer_text = "Disclaimer: The information contained on this site and the services provided by Doctor Lee Patient Advocacy are for educational purposes only. Although we have performed extensive research regarding medical conditions, treatments, diagnoses, procedures and medical research, the staff of Doctor Lee Patient Advocacy are not licensed providers of healthcare. The information provided by Doctor Lee Patient Advocacy should not be considered medical advice or used to diagnose or treat any health problem or disease. It is not a substitute for professional care. If you have or suspect you may have a health problem, you should consult your appropriate health care provider."
