@@ -1,24 +1,37 @@
 import streamlit as st
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import Pinecone
-from langchain_openai import ChatOpenAI
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import Pinecone
+from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
-from pinecone import Pinecone as PineconeClient
+import pinecone
 
 # Initialize Pinecone
-pc = PineconeClient(api_key=st.secrets.pinecone.api_key)
+pinecone_api_key = st.secrets["pinecone"]["api_key"]
+pinecone_index_name = st.secrets["pinecone"]["index_name"]
+pinecone_env_name = st.secrets["pinecone"]["env_name"]
+
+# Debugging: Ensure secrets are correctly loaded (you can remove this in production)
+st.write("Pinecone API Key:", pinecone_api_key)
+st.write("OpenAI API Key:", st.secrets["openai"]["api_key"])
+
+# Initialize Pinecone environment and client
+pinecone.init(api_key=pinecone_api_key, environment=pinecone_env_name)
+
+# Ensure the Pinecone index is created
+if pinecone_index_name not in pinecone.list_indexes():
+    st.error(f"Pinecone index '{pinecone_index_name}' not found. Please ensure the index exists.")
+else:
+    index = pinecone.Index(pinecone_index_name)
 
 # Set up OpenAI embeddings
-embeddings = OpenAIEmbeddings(openai_api_key=st.secrets.openai.api_key)
+embeddings = OpenAIEmbeddings(openai_api_key=st.secrets["openai"]["api_key"])
 
 # Initialize Pinecone vector store
-index_name = st.secrets.pinecone.index_name
-index = pc.Index(index_name)
 vectorstore = Pinecone(index, embeddings.embed_query, "text")
 
 # Initialize OpenAI chat model
 llm = ChatOpenAI(
-    openai_api_key=st.secrets.openai.api_key,
+    openai_api_key=st.secrets["openai"]["api_key"],
     model_name="gpt-3.5-turbo",
     temperature=0
 )
@@ -54,8 +67,12 @@ if prompt := st.chat_input("What is your question?"):
         full_response = ""
 
         # Get response from QA chain
-        result = qa_chain({"question": prompt, "chat_history": [(msg["role"], msg["content"]) for msg in st.session_state.messages]})
-        response = result['answer']
+        try:
+            result = qa_chain({"question": prompt, "chat_history": [(msg["role"], msg["content"]) for msg in st.session_state.messages]})
+            response = result['answer']
+        except Exception as e:
+            response = f"An error occurred: {e}"
+            st.error(response)
 
         # Simulate stream of response with milliseconds delay
         for chunk in response.split():
@@ -65,3 +82,6 @@ if prompt := st.chat_input("What is your question?"):
 
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+# Debugging: Output secrets in case of issues (you should remove this in production)
+print("Secrets:", st.secrets)
