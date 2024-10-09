@@ -11,36 +11,38 @@ avatar_zebra = "DrSpanos_Chatbot/assets/AvatarZebra.svg"
 
 # Initialize Pinecone
 try:
-    pc = PineconeClient(api_key=st.secrets.pinecone.api_key)
-except AttributeError:
-    st.error("Pinecone API key not found. Please check your secrets configuration.")
+    pinecone_api_key = st.secrets["pinecone"]["api_key"]
+    pinecone_index_name = st.secrets["pinecone"]["index_name"]
+    pc = PineconeClient(api_key=pinecone_api_key)
+except Exception as e:
+    st.error(f"Error initializing Pinecone: {str(e)}")
     st.stop()
 
 # Set up OpenAI embeddings
 try:
-    embeddings = OpenAIEmbeddings(openai_api_key=st.secrets.openai.api_key)
-except AttributeError:
-    st.error("OpenAI API key not found. Please check your secrets configuration.")
+    openai_api_key = st.secrets["openai"]["api_key"]
+    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+except Exception as e:
+    st.error(f"Error setting up OpenAI embeddings: {str(e)}")
     st.stop()
 
 # Initialize Pinecone vector store
 try:
-    index_name = st.secrets.pinecone.index_name
-    index = pc.Index(index_name)
+    index = pc.Index(pinecone_index_name)
     vectorstore = Pinecone(index, embeddings.embed_query, "text")
-except AttributeError:
-    st.error("Pinecone index name not found. Please check your secrets configuration.")
+except Exception as e:
+    st.error(f"Error initializing Pinecone vector store: {str(e)}")
     st.stop()
 
 # Initialize OpenAI chat model
 try:
     llm = ChatOpenAI(
-        openai_api_key=st.secrets.openai.api_key,
+        openai_api_key=openai_api_key,
         model_name="gpt-3.5-turbo",
         temperature=0
     )
-except AttributeError:
-    st.error("OpenAI API key not found. Please check your secrets configuration.")
+except Exception as e:
+    st.error(f"Error initializing OpenAI chat model: {str(e)}")
     st.stop()
 
 # Create a conversational chain
