@@ -2,20 +2,20 @@ import streamlit as st
 import os
 from PIL import Image
 
-# Get the absolute path to the project directory
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Get the current directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Set page config
 st.set_page_config(
     page_title="Dr. Spanos EDS Chatbot",
-    page_icon=os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "favicon.ico"),
+    page_icon=os.path.join(current_dir, "assets", "favicon.ico"),
     layout="centered"
 )
 
 # Load images
-avatar_doctor = Image.open(os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "AvatarDoctor.png"))
-avatar_zebra = Image.open(os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "AvatarZebra.png"))
-disclaimer_image = Image.open(os.path.join(BASE_DIR, "DrSpanos_Chatbot", "assets", "Disclaimer.png"))
+avatar_doctor = Image.open(os.path.join(current_dir, "assets", "AvatarDoctor.svg"))
+avatar_zebra = Image.open(os.path.join(current_dir, "assets", "AvatarZebra.svg"))
+disclaimer_image = Image.open(os.path.join(current_dir, "assets", "disclaimer.png"))
 
 # Custom CSS to match your design
 st.markdown("""
