@@ -66,5 +66,3 @@ if prompt := st.chat_input("What is your question?"):
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-# Debugging: Output secrets in case of issues (you should remove this in production)
-print("Secrets:", st.secrets)
