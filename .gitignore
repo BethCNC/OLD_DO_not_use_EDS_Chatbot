@@ -19,3 +19,6 @@ firebase-debug.log*
 
 venv/
 /Users/bethcartrette/REPOS/spanos-eds-chatbot/venv
+
+.streamlit/secrets.toml
+/Users/bethcartrette/REPOS/spanos-eds-chatbot/.streamlit/secrets.toml
