@@ -1,20 +1,20 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from streamlit.runtime.scriptrunner import RerunData, RerunException
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import Pinecone
-from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_pinecone import Pinecone
 from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
 from pinecone import Pinecone as PineconeClient
-from PIL import Image
-import base64
 from io import BytesIO
+import base64
+from PIL import Image
+from typing import List, Dict, Any
 
 # Set page configuration
 st.set_page_config(
     page_title="Dr. Spanos EDS Chatbot",
-    page_icon="DrSpanos_Chatbot/assets/favicon.ico",
+    page_icon="assets/favicon.ico",
     layout="wide"
 )
 
@@ -26,23 +26,21 @@ st.markdown("""
     <style>
     @font-face {
         font-family: 'MabryPro';
-        src: url('DrSpanos_Chatbot/assets/MabryPro-Regular.woff2') format('woff2'),
-             url('DrSpanos_Chatbot/assets/MabryPro-Regular.woff') format('woff');
+        src: url('app/static/MabryPro-Regular.ttf') format('truetype');
         font-weight: normal;
         font-style: normal;
     }
     
     @font-face {
         font-family: 'MabryPro';
-        src: url('DrSpanos_Chatbot/assets/MabryPro-Bold.woff2') format('woff2'),
-             url('DrSpanos_Chatbot/assets/MabryPro-Bold.woff') format('woff');
+        src: url('app/static/MabryPro-Bold.ttf') format('truetype');
         font-weight: bold;
         font-style: normal;
     }
 
     @font-face {
         font-family: 'MabryPro';
-        src: url('DrSpanos_Chatbot/assets/MabryPro_Black.ttf') format('truetype');
+        src: url('app/static/MabryPro-Black.ttf') format('truetype');
         font-weight: 900;
         font-style: normal;
     }
@@ -170,13 +168,13 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Function to get configuration
-def get_config(key):
-    # First, try to get the value from environment variables (for local development)
+def get_config(key: str) -> str:
+    # First, try to get the value from environment variables
     value = os.getenv(key)
     if value:
         return value
     
-    # If not found in environment, try to get from Streamlit secrets (for deployment)
+    # If not found in environment, try to get from Streamlit secrets
     try:
         if key == "PINECONE_API_KEY":
             return st.secrets["pinecone"]["api_key"]
@@ -184,10 +182,11 @@ def get_config(key):
             return st.secrets["pinecone"]["index_name"]
         elif key == "OPENAI_API_KEY":
             return st.secrets["openai"]["api_key"]
-    except (KeyError, FileNotFoundError):
+    except KeyError:
         st.error(f"Configuration for {key} not found in environment or Streamlit secrets.")
-        st.error("Please ensure you have set up your secrets.toml file or environment variables correctly.")
         st.stop()
+    
+    return ""
 
 # Get configuration
 pinecone_api_key = get_config("PINECONE_API_KEY")
@@ -195,41 +194,40 @@ pinecone_index_name = get_config("PINECONE_INDEX_NAME")
 openai_api_key = get_config("OPENAI_API_KEY")
 
 # Set up OpenAI embeddings
-try:
-    embeddings = OpenAIEmbeddings(api_key=openai_api_key)
-except Exception as e:
-    st.error(f"Error setting up OpenAI embeddings: {str(e)}")
-    st.stop()
+embeddings = OpenAIEmbeddings(api_key=openai_api_key)
 
 # Initialize Pinecone
-try:
-    pc = PineconeClient(api_key=pinecone_api_key)
-    index = pc.Index(pinecone_index_name)
-    vectorstore = Pinecone(index, embeddings.embed_query, "text")
-except Exception as e:
-    st.error(f"Error initializing Pinecone vector store: {str(e)}")
-    st.stop()
+pc = PineconeClient(api_key=pinecone_api_key)
+index = pc.Index(pinecone_index_name)
+
+# Create the vector store
+vectorstore = Pinecone.from_existing_index(index_name=pinecone_index_name, embedding=embeddings)
+
+# Debug: Check retrieved documents (only in development)
+def debug_retriever(query: str):
+    if os.getenv('STREAMLIT_ENV') == 'development':
+        docs = vectorstore.similarity_search(query, k=3)
+        st.write("Debug: Retrieved Documents")
+        for i, doc in enumerate(docs):
+            st.write(f"Document {i + 1}:")
+            st.write(doc.page_content[:200] + "...")  # Print first 200 characters
 
 # Initialize OpenAI chat model
-try:
-    llm = ChatOpenAI(
-        api_key=openai_api_key,
-        model="gpt-3.5-turbo",
-        temperature=0
-    )
-except Exception as e:
-    st.error(f"Error initializing OpenAI chat model: {str(e)}")
-    st.stop()
+llm = ChatOpenAI(api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0)
+
+# Create a ConversationBufferMemory to store chat history
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
 # Create a conversational chain
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm,
     retriever=vectorstore.as_retriever(),
+    memory=memory,
     return_source_documents=True
 )
 
 # Function to convert image to base64
-def img_to_base64(img):
+def img_to_base64(img: Image.Image) -> str:
     if img is not None:
         buffered = BytesIO()
         img.save(buffered, format="PNG")
@@ -249,7 +247,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Load the avatar and disclaimer images
-current_dir = os.path.dirname(os.path.abspath(__file__))
 avatar_doctor_path = os.path.join(current_dir, "assets", "AvatarDoctor.png")
 avatar_zebra_path = os.path.join(current_dir, "assets", "AvatarZebra.png")
 disclaimer_icon_path = os.path.join(current_dir, "assets", "Disclaimer.png")
@@ -274,45 +271,40 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 for message in st.session_state.messages:
-    avatar = avatar_zebra if message["role"] == "user" else avatar_doctor
-    avatar_base64 = img_to_base64(avatar)
-    st.markdown(f"""
-        <div class='chat-message {message["role"]}'>
-            <img class='avatar' src="data:image/png;base64,{avatar_base64}" />
-            <div class='message'>{message["content"]}</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# Add this function before your chat input section
-def clear_text():
-    st.session_state["user_input"] = ""
+    with st.chat_message(message["role"], avatar=avatar_zebra if message["role"] == "user" else avatar_doctor):
+        st.markdown(message["content"])
 
 # Chat input
-st.markdown("<div class='input-container'>", unsafe_allow_html=True)
-user_input = st.text_input("Type your message here...", key="user_input", on_change=clear_text)
-send_button = st.button("Send")
-st.markdown("</div>", unsafe_allow_html=True)
+if prompt := st.chat_input("What is up?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar=avatar_zebra):
+        st.markdown(prompt)
 
-if send_button and user_input:
-    # Add user message to chat
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # Get bot response
-    result = qa_chain({"question": user_input, "chat_history": [(msg["role"], msg["content"]) for msg in st.session_state.messages]})
-    bot_response = result['answer']
-    
-    # Add bot response to chat
-    st.session_state.messages.append({"role": "assistant", "content": bot_response})
-    
-    # Rerun the app to display the new messages
-    raise RerunException(RerunData(widget_states=None))
+    # Debug: Check retrieved documents
+    debug_retriever(prompt)
+
+    with st.chat_message("assistant", avatar=avatar_doctor):
+        message_placeholder = st.empty()
+        full_response = ""
+        result = qa_chain.invoke({"question": prompt})
+        full_response = result['answer']
+        message_placeholder.markdown(full_response)
+
+        # Print sources
+        st.write("Sources:")
+        for i, doc in enumerate(result['source_documents']):
+            st.write(f"Source {i + 1}:")
+            st.write(doc.page_content[:200] + "...")  # Print first 200 characters
+
+    # Add assistant response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Disclaimer
 disclaimer_text = "Disclaimer: The information contained on this site and the services provided by Doctor Lee Patient Advocacy are for educational purposes only. Although we have performed extensive research regarding medical conditions, treatments, diagnoses, procedures and medical research, the staff of Doctor Lee Patient Advocacy are not licensed providers of healthcare. The information provided by Doctor Lee Patient Advocacy should not be considered medical advice or used to diagnose or treat any health problem or disease. It is not a substitute for professional care. If you have or suspect you may have a health problem, you should consult your appropriate health care provider."
 
-disclaimer_icon_base64 = img_to_base64(disclaimer_icon)
+disclaimer_icon_base64 = img_to_base64(disclaimer_icon) if disclaimer_icon else ""
 disclaimer_html = f"""
 <div class="disclaimer-container">
     <img src="data:image/png;base64,{disclaimer_icon_base64}" class="disclaimer-icon" />
