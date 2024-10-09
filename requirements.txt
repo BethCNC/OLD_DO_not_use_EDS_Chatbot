@@ -6,4 +6,4 @@ langchain_pinecone
 openai
 pinecone-client
 python-dotenv
-Pillow
+pypdf
