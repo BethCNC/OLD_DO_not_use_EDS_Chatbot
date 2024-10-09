@@ -30,3 +30,4 @@ __pycache__/
 # Streamlit secrets
 .streamlit/secrets.toml
 /Users/bethcartrette/REPOS/spanos-eds-chatbot/.streamlit/secrets.toml
+/Users/bethcartrette/dr-spanos-chatbot/.streamlit/secrets.toml.template
