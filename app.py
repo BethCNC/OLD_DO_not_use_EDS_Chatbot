@@ -7,20 +7,32 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from pinecone import Pinecone as PineconeClient
 
-# Load environment variables from .env file if running locally
-if os.path.exists('.env'):
-    load_dotenv()
+# Load environment variables from .env file
+load_dotenv()
 
-# Load secrets from streamlit's secrets.toml if deployed
-if "pinecone" in st.secrets:
-    pinecone_api_key = st.secrets["pinecone"]["api_key"]
-    pinecone_index_name = st.secrets["pinecone"]["index_name"]
-    openai_api_key = st.secrets["openai"]["api_key"]
-else:
-    # Fallback to environment variables for local development
-    pinecone_api_key = os.getenv("PINECONE_API_KEY")
-    pinecone_index_name = os.getenv("PINECONE_INDEX_NAME")
-    openai_api_key = os.getenv("OPENAI_API_KEY")
+# Function to get configuration
+def get_config(key):
+    # First, try to get the value from environment variables (for local development)
+    value = os.getenv(key)
+    if value:
+        return value
+    
+    # If not found in environment, try to get from Streamlit secrets (for deployment)
+    try:
+        if key == "PINECONE_API_KEY":
+            return st.secrets["pinecone"]["api_key"]
+        elif key == "PINECONE_INDEX_NAME":
+            return st.secrets["pinecone"]["index_name"]
+        elif key == "OPENAI_API_KEY":
+            return st.secrets["openai"]["api_key"]
+    except KeyError:
+        st.error(f"Configuration for {key} not found in environment or Streamlit secrets.")
+        st.stop()
+
+# Get configuration
+pinecone_api_key = get_config("PINECONE_API_KEY")
+pinecone_index_name = get_config("PINECONE_INDEX_NAME")
+openai_api_key = get_config("OPENAI_API_KEY")
 
 # Initialize Pinecone
 try:
