@@ -1,6 +1,4 @@
 import streamlit as st
-import os
-from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -8,9 +6,7 @@ from langchain_pinecone import PineconeVectorStore
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 import pinecone
-
-# Load environment variables
-load_dotenv()
+import tempfile
 
 # OpenAI setup
 openai_api_key = st.secrets["openai"]["api_key"]
@@ -21,7 +17,7 @@ llm = ChatOpenAI(
 )
 
 # Initialize embeddings
-embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large", openai_api_key=openai_api_key)
 
 # Initialize Pinecone
 pinecone.init(
@@ -41,12 +37,13 @@ uploaded_files = st.sidebar.file_uploader("Upload PDF files", accept_multiple_fi
 
 if uploaded_files:
     for file in uploaded_files:
-        # Save the file temporarily
-        with open(file.name, "wb") as f:
-            f.write(file.getbuffer())
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            temp_file.write(file.getvalue())
+            temp_file_path = temp_file.name
         
         # Load and process the PDF
-        loader = PyPDFLoader(file.name)
+        loader = PyPDFLoader(temp_file_path)
         documents = loader.load()
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         texts = text_splitter.split_documents(documents)
@@ -55,7 +52,8 @@ if uploaded_files:
         vectorstore.add_documents(texts)
         
         # Remove the temporary file
-        os.remove(file.name)
+        import os
+        os.unlink(temp_file_path)
     
     st.sidebar.success("Files processed and added to the knowledge base!")
 
