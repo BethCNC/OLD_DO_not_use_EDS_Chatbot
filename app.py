@@ -1,17 +1,26 @@
+import streamlit as st
 import os
 from dotenv import load_dotenv
-import streamlit as st
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import Pinecone
-from langchain_openai import ChatOpenAI
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import PineconeVectorStore
+from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
-from pinecone import Pinecone as PineconeClient
+from pinecone import Pinecone
 from PIL import Image
+import base64
+from io import BytesIO
 
-# Load environment variables from .env file
+# Set page configuration
+st.set_page_config(
+    page_title="Dr. Spanos EDS Chatbot",
+    page_icon="DrSpanos_Chatbot/assets/favicon.ico",
+    layout="wide"
+)
+
+# Load environment variables
 load_dotenv()
 
-# Custom CSS to load MabryPro font
+# Custom CSS to match your design
 st.markdown("""
     <style>
     @font-face {
@@ -30,8 +39,99 @@ st.markdown("""
         font-style: normal;
     }
 
+    @font-face {
+        font-family: 'MabryPro';
+        src: url('DrSpanos_Chatbot/assets/MabryPro_Black.ttf') format('truetype');
+        font-weight: 900;
+        font-style: normal;
+    }
+
     html, body, [class*="css"] {
         font-family: 'MabryPro', sans-serif;
+    }
+
+    .stApp {
+        background-color: #EEEFF2;
+    }
+
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    h1 {
+        color: #FF492F;
+        font-family: 'MabryPro', sans-serif;
+        font-weight: 900;
+    }
+
+    .stTextInput > div > div > input {
+        background-color: #EEEFF2;
+        color: #0D0D0D;
+        border: 1px solid #2A2A2A;
+    }
+
+    .stButton > button {
+        background-color: #FE8D3C;
+        color: #0D0D0D;
+    }
+
+    .chat-message {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+    }
+
+    .chat-message.user {
+        background-color: #2A2A2A;
+        color: #EEEFF2;
+    }
+
+    .chat-message.bot {
+        background-color: #EEEFF2;
+        color: #0D0D0D;
+    }
+
+    .chat-message .avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 1rem;
+    }
+
+    .chat-message .message {
+        flex-grow: 1;
+    }
+
+    .stWarning {
+        background-color: rgba(255, 142, 60, 0.1);
+        color: #FF8E3C;
+    }
+
+    .disclaimer-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: rgba(255, 142, 60, 0.1);
+        padding: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .disclaimer-icon {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+    }
+
+    .disclaimer-text {
+        color: #FF8E3C;
+        font-size: 12px;
+        line-height: 1.5;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -63,7 +163,7 @@ openai_api_key = get_config("OPENAI_API_KEY")
 
 # Initialize Pinecone
 try:
-    pc = PineconeClient(api_key=pinecone_api_key)
+    pc = Pinecone(api_key=pinecone_api_key)
 except Exception as e:
     st.error(f"Error initializing Pinecone: {str(e)}")
     st.stop()
@@ -78,7 +178,7 @@ except Exception as e:
 # Initialize Pinecone vector store
 try:
     index = pc.Index(pinecone_index_name)
-    vectorstore = Pinecone(index, embeddings.embed_query, "text")
+    vectorstore = PineconeVectorStore(index, embeddings, "text")
 except Exception as e:
     st.error(f"Error initializing Pinecone vector store: {str(e)}")
     st.stop()
@@ -104,75 +204,77 @@ qa_chain = ConversationalRetrievalChain.from_llm(
 # Streamlit UI
 st.title("Dr. Spanos Ehler Danlos Syndrome Chatbot")
 
-# Load the avatar images
+# Load the avatar and disclaimer images
 current_dir = os.path.dirname(os.path.abspath(__file__))
 avatar_doctor_path = os.path.join(current_dir, "assets", "AvatarDoctor.png")
 avatar_zebra_path = os.path.join(current_dir, "assets", "AvatarZebra.png")
+disclaimer_icon_path = os.path.join(current_dir, "assets", "Disclaimer.png")
 
 try:
     avatar_doctor = Image.open(avatar_doctor_path)
     avatar_zebra = Image.open(avatar_zebra_path)
+    disclaimer_icon = Image.open(disclaimer_icon_path)
 except FileNotFoundError as e:
-    st.error(f"Error loading avatar images: {str(e)}")
+    st.error(f"Error loading images: {str(e)}")
     st.error(f"Current directory: {current_dir}")
     st.error(f"Attempted to load doctor avatar from: {avatar_doctor_path}")
     st.error(f"Attempted to load zebra avatar from: {avatar_zebra_path}")
-    avatar_doctor = None
-    avatar_zebra = None
+    st.error(f"Attempted to load disclaimer icon from: {disclaimer_icon_path}")
+    avatar_doctor = avatar_zebra = disclaimer_icon = None
 
-# Initialize chat history
+# Function to convert image to base64
+def img_to_base64(img):
+    if img is not None:
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+    return ""
+
+# Chat interface
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+
+# Display chat messages
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat messages from history on app rerun
 for message in st.session_state.messages:
-    with st.chat_message(message["role"], avatar=avatar_zebra if message["role"] == "user" else avatar_doctor):
-        st.markdown(message["content"])
+    avatar = avatar_zebra if message["role"] == "user" else avatar_doctor
+    avatar_base64 = img_to_base64(avatar)
+    st.markdown(f"""
+        <div class='chat-message {message["role"]}'>
+            <img class='avatar' src="data:image/png;base64,{avatar_base64}" />
+            <div class='message'>{message["content"]}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-# React to user input
-if prompt := st.chat_input("What is your question?"):
-    # Display user message in chat message container
-    with st.chat_message("user", avatar=avatar_zebra):
-        st.markdown(prompt)
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
+st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.chat_message("assistant", avatar=avatar_doctor):
-        message_placeholder = st.empty()
-        full_response = ""
+# Chat input
+user_input = st.text_input("Type your message here...")
 
-        # Get response from QA chain
-        result = qa_chain({"question": prompt, "chat_history": [(msg["role"], msg["content"]) for msg in st.session_state.messages]})
-        response = result['answer']
+if user_input:
+    # Add user message to chat
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    # Get bot response
+    result = qa_chain({"question": user_input, "chat_history": [(msg["role"], msg["content"]) for msg in st.session_state.messages]})
+    bot_response = result['answer']
+    
+    # Add bot response to chat
+    st.session_state.messages.append({"role": "assistant", "content": bot_response})
+    
+    # Rerun the app to display the new messages
+    st.rerun()
 
-        # Simulate stream of response with milliseconds delay
-        for chunk in response.split():
-            full_response += chunk + " "
-            message_placeholder.markdown(full_response + "▌")
-        message_placeholder.markdown(full_response)
+# Disclaimer
+disclaimer_text = "Disclaimer: The information contained on this site and the services provided by Doctor Lee Patient Advocacy are for educational purposes only. Although we have performed extensive research regarding medical conditions, treatments, diagnoses, procedures and medical research, the staff of Doctor Lee Patient Advocacy are not licensed providers of healthcare. The information provided by Doctor Lee Patient Advocacy should not be considered medical advice or used to diagnose or treat any health problem or disease. It is not a substitute for professional care. If you have or suspect you may have a health problem, you should consult your appropriate health care provider."
 
-    # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-# Footer
-footer_html = """
-<style>
-    .footer {
-        position: relative;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #f1f1f1;
-        color: black;
-        text-align: center;
-        padding: 10px;
-        font-size: 12px;
-        margin-top: 20px;
-    }
-</style>
-<div class="footer">
-    <p><strong>Disclaimer:</strong> The information contained on this site and the supporting attachments provided by Rachel Lee Patient Advocacy Consulting are for educational purposes only. Although we have performed extensive research regarding medical conditions, treatments, diagnoses, protocols and medical research, the staff of Rachel Lee Patient Advocacy Consulting are not licensed members of the North Carolina Medical Board or any clinical affiliates including but not limited to the NC Board of Physical Therapy Examiners, the NC board of Licensed Professional Counselors, or the NC board of Dietetics/Nutrition. Information provided by members of Rachel Lee Patient Advocacy Consulting should not be considered a substitute for the advice of a licensed medical doctor, counselor, therapist or other licensed clinical practitioner in handling your medical affairs.</p>
+disclaimer_icon_base64 = img_to_base64(disclaimer_icon)
+disclaimer_html = f"""
+<div class="disclaimer-container">
+    <img src="data:image/png;base64,{disclaimer_icon_base64}" class="disclaimer-icon" />
+    <div class="disclaimer-text">{disclaimer_text}</div>
 </div>
 """
 
-st.markdown(footer_html, unsafe_allow_html=True)
+st.markdown(disclaimer_html, unsafe_allow_html=True)
