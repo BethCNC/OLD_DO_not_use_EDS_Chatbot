@@ -6,22 +6,38 @@ from langchain.chains import ConversationalRetrievalChain
 from pinecone import Pinecone as PineconeClient
 
 # Initialize Pinecone
-pc = PineconeClient(api_key=st.secrets.pinecone.api_key)
+try:
+    pc = PineconeClient(api_key=st.secrets.pinecone.api_key)
+except AttributeError:
+    st.error("Pinecone API key not found. Please check your secrets configuration.")
+    st.stop()
 
 # Set up OpenAI embeddings
-embeddings = OpenAIEmbeddings(openai_api_key=st.secrets.openai.api_key)
+try:
+    embeddings = OpenAIEmbeddings(openai_api_key=st.secrets.openai.api_key)
+except AttributeError:
+    st.error("OpenAI API key not found. Please check your secrets configuration.")
+    st.stop()
 
 # Initialize Pinecone vector store
-index_name = st.secrets.pinecone.index_name
-index = pc.Index(index_name)
-vectorstore = Pinecone(index, embeddings.embed_query, "text")
+try:
+    index_name = st.secrets.pinecone.index_name
+    index = pc.Index(index_name)
+    vectorstore = Pinecone(index, embeddings.embed_query, "text")
+except AttributeError:
+    st.error("Pinecone index name not found. Please check your secrets configuration.")
+    st.stop()
 
 # Initialize OpenAI chat model
-llm = ChatOpenAI(
-    openai_api_key=st.secrets.openai.api_key,
-    model_name="gpt-3.5-turbo",
-    temperature=0
-)
+try:
+    llm = ChatOpenAI(
+        openai_api_key=st.secrets.openai.api_key,
+        model_name="gpt-3.5-turbo",
+        temperature=0
+    )
+except AttributeError:
+    st.error("OpenAI API key not found. Please check your secrets configuration.")
+    st.stop()
 
 # Create a conversational chain
 qa_chain = ConversationalRetrievalChain.from_llm(
