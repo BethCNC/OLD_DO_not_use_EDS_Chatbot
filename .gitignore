@@ -16,3 +16,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 firebase-debug.log*
+
+venv/
+/Users/bethcartrette/REPOS/spanos-eds-chatbot/venv
