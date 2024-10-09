@@ -51,8 +51,9 @@ def get_config(key):
             return st.secrets["pinecone"]["index_name"]
         elif key == "OPENAI_API_KEY":
             return st.secrets["openai"]["api_key"]
-    except KeyError:
+    except (KeyError, FileNotFoundError):
         st.error(f"Configuration for {key} not found in environment or Streamlit secrets.")
+        st.error("Please ensure you have set up your secrets.toml file or environment variables correctly.")
         st.stop()
 
 # Get configuration

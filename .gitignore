@@ -31,3 +31,6 @@ __pycache__/
 .streamlit/secrets.toml
 /Users/bethcartrette/REPOS/spanos-eds-chatbot/.streamlit/secrets.toml
 /Users/bethcartrette/dr-spanos-chatbot/.streamlit/secrets.toml.template
+
+.env
+DrSpanos_Chatbot/venv
